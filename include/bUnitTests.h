@@ -95,9 +95,7 @@ namespace ben
 
       public:
         /// @brief dtor is virtual since unit tests are to be inherited from
-        /// @note here we've set the dtor = 0 to enforce no UnitTest structs are constructed by the user. That being
-        /// said, a definition for the dtor is still provided in the implementation section.
-        virtual ~UnitTest() = 0;
+        virtual ~UnitTest() = default;
     };
 } // namespace ben
 
@@ -240,8 +238,6 @@ ben::UnitTest::UnitTest(const char *name, ben::bTestFunc_t func)
     std::string nameString{name};
     get_tests().insert_or_assign(nameString, func);
 }
-
-ben::UnitTest::~UnitTest() {};
 
 // only compile the main function if we're building the tests
 #    ifdef bBUILD_TESTS
