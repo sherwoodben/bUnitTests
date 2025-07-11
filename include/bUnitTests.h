@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file bUnitTests.h
-/// @version 1.0.0
+/// @version 1.1.0
 /// @brief "header only" unit testing framework/application
 ///
 /// The "header only" mentioned above is a little bit of a lie. While this file _does_ contain everything that is needed
@@ -60,6 +60,21 @@
 ///
 /// Lastly, "bBUILD_TESTS" must be defined to actually build the tests! Otherwise, the entry point/main function is not
 /// defined.
+///
+/// --CHANGELOG---------------------------------------------------------------------------------------------------------
+/// This section was introduced in file version 1.1.0 to track the changes which are made to the file.
+///
+/// v1.1.0  -   Introduced capability to capture the std::cout output from the functions being tested to a log file.
+///             This reduces clutter in the "status" printouts for testing of functions which may involve printing to
+///             std::cout. The log file is controllable via defining the bTESTS_LOG_FILE macro. If not defined, it
+///             defaults to "tests.txt"
+///
+///             The behavior is on by default, but if no log file is desired it can be disabled by providing a
+///             preprocessor definition for bTESTS_NO_LOG. If this value is defined, now only the status printouts
+///             appear in the console/output of this program-- any calls to std::cout in the test functions point to a
+///             nullptr buffer which effectively silences the output.
+///
+///             Also, made the g_successes variable static.
 
 #include <exception>
 #include <string>
@@ -152,6 +167,12 @@ namespace ben
 #ifdef bTEST_IMPLEMENTATION
 #    include <iostream>
 #    include <unordered_map>
+#    ifndef bTESTS_NO_LOG
+#        include <fstream>
+#        ifndef bTESTS_LOG_FILE
+#            define bTESTS_LOG_FILE "tests.txt"
+#        endif // !bTESTS_LOG_FILE
+#    endif     // !bTEST_NO_LOG
 
 namespace
 {
@@ -162,8 +183,13 @@ namespace
         fail = -1,
     };
 
+#    ifndef bTESTS_NO_LOG
+    // prepare an output file stream
+    static std::ofstream testsLog{bTESTS_LOG_FILE};
+#    endif // !bTESTS_NO_LOG
+
     /// @brief keep track of the number of successes; incremeneted whenever a test passes
-    size_t g_successes{0};
+    static size_t g_successes{0};
 
     /// @brief the list of string/test function pointers to evaluate (accessed through a getter to avoid static
     /// initialization order problems!)
@@ -197,6 +223,9 @@ namespace
     {
         size_t idx{0};
 
+        // save a pointer to the original std::cout buffer...
+        std::streambuf *const coutBuffer{std::cout.rdbuf()};
+
         std::cout << "RUNNING TESTS...\n";
         // walk through all of the tests and run them:
         for (const auto &[name, test] : get_tests())
@@ -204,10 +233,37 @@ namespace
             // announce which test we're running
             std::cout << "\t[" << (idx + 1) << "] : '" << name << "' ";
 
+            // it's feasible the function might try to print to std::cout... but we're printing the result
+            // (pass/fail) of the test there. We don't want to pollute the output too much! Instead, we can print
+            // the output from each test to a log file (along with a "header" for each test to separate the output
+            // of each test). We can switch the target buffer for std::cout to be a file so that anything that is
+            // printed to std::cout can be found in the file
+            //
+            // all that being said, we can skip the logging to a file if the bTESTS_NO_LOG preprocessor macro is
+            // defined
+
+#    ifndef bTESTS_NO_LOG
+            // set the std::cout's rdbuf to the output file stream...
+            std::cout.set_rdbuf(testsLog.rdbuf());
+
+            // announce which test we're running (now in the log file)
+            print_line_separator();
+            std::cout << "Test '" << name << "' log:\n\n";
+#    else
+            std::cout.set_rdbuf(nullptr);
+#    endif // !bTESTS_NO_LOG
+
             // use exceptions to figure out if tests pass
             try
             {
                 (*test)();
+#    ifndef bTESTS_NO_LOG
+                // print a success message and line separator...
+                std::cout << "\npassed.\n";
+                print_line_separator();
+#    endif // !bTESTS_NO_LOG
+           // and switch std::cout's rdbuf back to the old value!
+                std::cout.set_rdbuf(coutBuffer);
                 std::cout << "passed.\n";
                 g_successes++;
             }
@@ -215,6 +271,13 @@ namespace
             // catch the exceptions (i.e. a failed test)
             catch (const std::exception &e)
             {
+#    ifndef bTESTS_NO_LOG
+                // print the error location and line separator...
+                std::cout << "\nfailed at '" << e.what() << "'.\n";
+                print_line_separator();
+#    endif // !bTESTS_NO_LOG
+           // and switch std::cout's rdbuf back to the old value!
+                std::cout.set_rdbuf(coutBuffer);
                 std::cout << "failed at '" << e.what() << "'.\n";
             }
 
@@ -229,6 +292,19 @@ namespace
         std::cout << "SUMMARY:\n";
         std::cout << "\tPassed " << g_successes << " out of " << get_tests().size() << " tests.\n";
         print_line_separator();
+
+#    ifndef bTESTS_NO_LOG
+        // save a pointer to the original std::cout buffer...
+        std::streambuf *const coutBuffer{std::cout.rdbuf()};
+        // set the std::cout's rdbuf to the output file stream...
+        std::cout.set_rdbuf(testsLog.rdbuf());
+        print_line_separator();
+        std::cout << "SUMMARY:\n";
+        std::cout << "\tPassed " << g_successes << " out of " << get_tests().size() << " tests.\n";
+        print_line_separator();
+        // and switch std::cout's rdbuf back to the old value!
+        std::cout.set_rdbuf(coutBuffer);
+#    endif // !bTESTS_NO_LOG
     }
 } // namespace
 
