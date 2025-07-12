@@ -4,6 +4,9 @@
 /// @version 1.1.0
 /// @brief "header only" unit testing framework/application
 ///
+/// This file is licensed under the MIT license. The complete text of the MIT licence can be found at the bottom of this
+/// document and should not be removed.
+///
 /// The "header only" mentioned above is a little bit of a lie. While this file _does_ contain everything that is needed
 /// to use/make a unit testing application, it's not enough to have just the file on its own. This file should be
 /// included in a project which wants to generate a unit testing program. Then, in _ONE AND ONLY ONE_ .cpp file be sure
@@ -58,23 +61,31 @@
 ///
 ///     #include <bUnitTests.h>
 ///
-/// Lastly, "bBUILD_TESTS" must be defined to actually build the tests! Otherwise, the entry point/main function is not
+/// bBUILD_TESTS must be defined to actually build the tests! Otherwise, the entry point/main function is not
 /// defined.
+///
+/// If any of the tests would produce an output to std::cout, they are instead redirected to a log file (default name
+/// "tests.txt") which contains the output for each test. The name of the log file can be controlled by providing a
+/// definition for bTESTS_LOG_FILE. Logging to a file can be disabled by defining bTESTS_NO_LOG, in which case all
+/// outputs are discarded and a log file is not generated -- test results will still print to the console, however.
 ///
 /// --CHANGELOG---------------------------------------------------------------------------------------------------------
 /// This section was introduced in file version 1.1.0 to track the changes which are made to the file.
 ///
 /// v1.1.0  -   Introduced capability to capture the std::cout output from the functions being tested to a log file.
 ///             This reduces clutter in the "status" printouts for testing of functions which may involve printing to
-///             std::cout. The log file is controllable via defining the bTESTS_LOG_FILE macro. If not defined, it
-///             defaults to "tests.txt"
+///             std::cout. The log file name is controllable via defining bTESTS_LOG_FILE. If not defined, it
+///             defaults to "tests.txt". 
 ///
 ///             The behavior is on by default, but if no log file is desired it can be disabled by providing a
 ///             preprocessor definition for bTESTS_NO_LOG. If this value is defined, now only the status printouts
 ///             appear in the console/output of this program-- any calls to std::cout in the test functions point to a
 ///             nullptr buffer which effectively silences the output.
 ///
-///             Also, made the g_successes variable static.
+///             Made the g_successes variable static.
+///
+///             Added in-file documentation for the new logging functionality.
+///             Added MIT license to the body of this file.
 
 #include <exception>
 #include <string>
@@ -416,3 +427,26 @@ int main()
 ///
 /// That's about it for now! It' s simple and bare-bones but that's all I need.
 /// ********************************************************************************************************************
+/// DO NOT REMOVE THIS SECTION.
+///
+/// MIT License
+///
+/// Copyright (c) 2025 sherwoodben
+///
+/// Permission is hereby granted, free of charge, to any person obtaining a copy
+/// of this software and associated documentation files (the "Software"), to deal
+/// in the Software without restriction, including without limitation the rights
+/// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+/// copies of the Software, and to permit persons to whom the Software is
+/// furnished to do so, subject to the following conditions:
+///
+/// The above copyright notice and this permission notice shall be included in all
+/// copies or substantial portions of the Software.
+///
+/// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+/// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+/// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+/// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+/// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+/// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+/// SOFTWARE.
