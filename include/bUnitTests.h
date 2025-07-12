@@ -64,6 +64,11 @@
 /// bBUILD_TESTS must be defined to actually build the tests! Otherwise, the entry point/main function is not
 /// defined.
 ///
+/// If any of the tests would produce an output to std::cout, they are instead redirected to a log file (default name
+/// "tests.txt") which contains the output for each test. The name of the log file can be controlled by providing a
+/// definition for bTESTS_LOG_FILE. Logging to a file can be disabled by defining bTESTS_NO_LOG, in which case all
+/// outputs are discarded and a log file is not generated -- test results will still print to the console, however.
+///
 /// Functionality for grouping tests has been provided-- tests are run for each group in sequence, so grouped tests will
 /// have their outputs closer together in the log file. Ungrouped tests belong to a group named "ungrouped". To see an
 /// example test "implementation", see the bottom of this file (above the license).
