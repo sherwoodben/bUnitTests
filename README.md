@@ -20,15 +20,17 @@ To define a test, simply use the provided macro; for example this test will be n
 
 That test will pass! The following test, named "one_is_even" will fail:
 
-    bTEST_FUNCTION(one_is_even)
+    bTEST_FUNCTION(one_is_even, "example group")
     {
         std::cout << "Some output\n";
         bTEST_ASSERT(1 % 2 == 0);
     }
 
-And when the test application runs, the results of "one_is_odd" and "one_is_even" will be printed to the console along with some information about which test is currently running.
+When the test application runs, the results of "one_is_odd" and "one_is_even" will be printed to the console along with some information about which test is currently running.
 
 Notice the call to `std::cout` in the "one_is_even" test-- if this were actually printed to the console it would disrupt the output of the test results! Instead, the calls to `std::cout` in the tests are redirected to a log file. The log file's name is controllable via providing a definition for `bTESTS_LOG_FILE`. If no definition is provided the default of "tests.txt" is used. Logging can be disabled entirely by defining `bTESTS_NO_LOG`.
+
+Additionally, notice the second parameter in the second call to the bTEST_FUNCTION. This (optional) string literal parameter is used to group tests such that their outputs in the log file will be closer together, since tests are per group in sequence. Tests which are not provided a group name are automatically added to a group named "ungrouped"-- that is `bTEST_FUNCTION(one_is_odd)` is equivalent to `bTEST_FUNCTION(one_is_odd, "ungrouped")`.
 
 The application returns 0 if all tests pass, and -1 if any test fails. This allows the application to be used as some sort of tooling for a build step for more complicated projects!
 
