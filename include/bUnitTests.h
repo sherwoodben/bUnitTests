@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file bUnitTests.h
-/// @version 1.1.0
+/// @version 1.2.0
 /// @brief "header only" unit testing framework/application
 ///
 /// This file is licensed under the MIT license. The complete text of the MIT licence can be found at the bottom of this
@@ -64,28 +64,35 @@
 /// bBUILD_TESTS must be defined to actually build the tests! Otherwise, the entry point/main function is not
 /// defined.
 ///
-/// If any of the tests would produce an output to std::cout, they are instead redirected to a log file (default name
-/// "tests.txt") which contains the output for each test. The name of the log file can be controlled by providing a
-/// definition for bTESTS_LOG_FILE. Logging to a file can be disabled by defining bTESTS_NO_LOG, in which case all
-/// outputs are discarded and a log file is not generated -- test results will still print to the console, however.
-///
-/// --CHANGELOG---------------------------------------------------------------------------------------------------------
-/// This section was introduced in file version 1.1.0 to track the changes which are made to the file.
-///
-/// v1.1.0  -   Introduced capability to capture the std::cout output from the functions being tested to a log file.
-///             This reduces clutter in the "status" printouts for testing of functions which may involve printing to
-///             std::cout. The log file name is controllable via defining bTESTS_LOG_FILE. If not defined, it
-///             defaults to "tests.txt". 
-///
-///             The behavior is on by default, but if no log file is desired it can be disabled by providing a
-///             preprocessor definition for bTESTS_NO_LOG. If this value is defined, now only the status printouts
-///             appear in the console/output of this program-- any calls to std::cout in the test functions point to a
-///             nullptr buffer which effectively silences the output.
-///
-///             Made the g_successes variable static.
-///
-///             Added in-file documentation for the new logging functionality.
-///             Added MIT license to the body of this file.
+/// Functionality for grouping tests has been provided-- tests are run for each group in sequence, so grouped tests will
+/// have their outputs closer together in the log file. Ungrouped tests belong to a group named "ungrouped". To see an
+/// example test "implementation", see the bottom of this file (above the license).
+
+// --CHANGELOG---------------------------------------------------------------------------------------------------------
+// This section was introduced in file version 1.1.0 to track the changes which are made to the file.
+//
+//  v1.2.0  -   Introduced capability to group tests by providing an (optional) second parameter to the test function
+//              macro. Tests which are not provided a group (i.e. defined with the old macro) are added to a group
+//              named "ungrouped"-- if the user also chooses this as their group name the test will be included with
+//              the other ungrouped tests.
+//
+//              The (unordered) map of strings to test functions was changed to an (unordered) map of strings to an
+//              (unordered) map of strings to test functions. The first string is the group "key" while the second
+//              string is the "function name" key which is how we allow for the grouping of tests. The means of adding
+//              and accessing the test functions have been updated to account for the extra string key.
+//
+//  v1.1.0  -   Introduced capability to capture the std::cout output from the functions being tested to a log file.
+//              This reduces clutter in the "status" printouts for testing of functions which may involve printing to
+//              std::cout. The log file is controllable via defining the bTESTS_LOG_FILE macro. If not defined, it
+//              defaults to "tests.txt"
+//
+//              The behavior is on by default, but if no log file is desired it can be disabled by providing a
+//              preprocessor definition for bTESTS_NO_LOG. If this value is defined, now only the status printouts
+//              appear in the console/output of this program-- any calls to std::cout in the test functions point to a
+//              nullptr buffer which effectively silences the output.
+//
+//              Also, made the g_successes variable static.
+// ---------------------------------------------------------------------------------------------------------------------
 
 #include <exception>
 #include <string>
@@ -110,7 +117,8 @@ namespace ben
         /// @param name the name of the test (not necessarily the name of the function)
         /// @param func a pointer to a bTestFunc_t (a function which takes no arguments and returns nothing) which
         /// houses the test implementation
-        UnitTest(const char *name, bTestFunc_t func);
+        /// @param group the name of the group the test belongs to
+        UnitTest(const char *name, bTestFunc_t func, const char *group = "ungrouped");
 
         // we do NOT want to be able to copy/move/assign unit tests (that's nonsensical)
         UnitTest()                                = delete;
@@ -132,7 +140,7 @@ namespace ben
 #    define bFILE_PATH_SEPARATOR '/' ///< file path separator (not Windows)
 #endif                               // _WIN32
 
-/// @brief test function convenience macro
+/// @brief test function convenience macro (optionally grouped with a second argument)
 ///
 /// creates a forward declaration to a function which returns a bTestFunc_return_t using the provided "name", then
 /// creates a special struct which inherits from the base UnitTest struct and "forwards" the forward-declared function
@@ -143,13 +151,15 @@ namespace ben
 ///
 /// @param fName the "name" of the test function-- can contain any character that is valid in a function signature (not
 /// whitespace) including underscores (but it cannot start with a number). Will not compile if the name is not valid!
-#define bTEST_FUNCTION(fName)                                                                                          \
+/// @param (variadic arguments) the "group" the test belongs to-- used for organizational purposes and to group similar
+/// tests! Can be left blank for ungrouped tests (which is why it's a variadic argument)
+#define bTEST_FUNCTION(fName, ...)                                                                                     \
     ben::bTestFunc_return_t fName##_TestFunc();                                                                        \
     namespace                                                                                                          \
     {                                                                                                                  \
         inline static const struct fName##_UnitTest : public ben::UnitTest                                             \
         {                                                                                                              \
-            fName##_UnitTest() : UnitTest{#fName, &fName##_TestFunc} {};                                               \
+            fName##_UnitTest() : UnitTest{#fName, &fName##_TestFunc, ##__VA_ARGS__} {};                                \
             virtual ~fName##_UnitTest()                               = default;                                       \
             fName##_UnitTest(const fName##_UnitTest &)                = delete;                                        \
             fName##_UnitTest(fName##_UnitTest &&) noexcept            = delete;                                        \
@@ -195,20 +205,22 @@ namespace
     };
 
 #    ifndef bTESTS_NO_LOG
-    // prepare an output file stream
+    /// @brief the output (logging) file stream
     static std::ofstream testsLog{bTESTS_LOG_FILE};
 #    endif // !bTESTS_NO_LOG
 
     /// @brief keep track of the number of successes; incremeneted whenever a test passes
     static size_t g_successes{0};
 
-    /// @brief the list of string/test function pointers to evaluate (accessed through a getter to avoid static
-    /// initialization order problems!)
-    /// @return the (static) list of string identifiers/function pointers accessed by the strings
-    std::unordered_map<std::string, ben::bTestFunc_t> &get_tests()
+    /// @brief gets the unordered map of strings (group names) to unordered map of strings (function names) to test
+    /// function pointers to evaluate
+    /// @return the (static) unordered map of (group) strings to unordered maps of (function name) string identifiers to
+    /// test function pointers
+    /// @remark accessed through a "static getter" to avoid static initialization order problems!
+    std::unordered_map<std::string, std::unordered_map<std::string, ben::bTestFunc_t>> &get_tests()
     {
         // store as a static variable in this function, return a reference to it
-        static std::unordered_map<std::string, ben::bTestFunc_t> s_tests;
+        static std::unordered_map<std::string, std::unordered_map<std::string, ben::bTestFunc_t>> s_tests;
         return s_tests;
     };
 
@@ -218,6 +230,24 @@ namespace
         std::cout << "--------------------------------------------------------------------------------\n";
     };
 
+    /// @brief gets the total number of tests as the sum of all test counts per group
+    /// @return the total number of tests
+    const size_t get_number_of_tests()
+    {
+        static bool   first{true};
+        static size_t numTests{0};
+
+        if (first)
+        {
+            for (const auto &[group, tests] : get_tests())
+            {
+                numTests += tests.size();
+            }
+            first = false;
+        }
+        return numTests;
+    }
+
     /// @brief prints information regarding the tests which are about to be performed as well as what the return value
     /// of the program indicates
     void print_info()
@@ -225,7 +255,8 @@ namespace
         print_line_separator();
         std::cout << "INFO:\tIf all tests pass (or no tests fail), the program will return success."
                      "\n\t\tOtherwise, it will return failure.\n";
-        std::cout << "INFO:\tFound " << get_tests().size() << " test" << (get_tests().size() == 1 ? ".\n" : "s.\n");
+        std::cout << "INFO:\tFound " << get_number_of_tests() << " test" << (get_number_of_tests() == 1 ? "" : "s")
+                  << " in " << get_tests().size() << " group" << (get_tests().size() == 1 ? ".\n" : "s.\n");
         print_line_separator();
     }
 
@@ -238,61 +269,73 @@ namespace
         std::streambuf *const coutBuffer{std::cout.rdbuf()};
 
         std::cout << "RUNNING TESTS...\n";
-        // walk through all of the tests and run them:
-        for (const auto &[name, test] : get_tests())
+
+        // walk through each group, getting the tests associated with that group
+        for (const auto &[group, tests] : get_tests())
         {
-            // announce which test we're running
-            std::cout << "\t[" << (idx + 1) << "] : '" << name << "' ";
-
-            // it's feasible the function might try to print to std::cout... but we're printing the result
-            // (pass/fail) of the test there. We don't want to pollute the output too much! Instead, we can print
-            // the output from each test to a log file (along with a "header" for each test to separate the output
-            // of each test). We can switch the target buffer for std::cout to be a file so that anything that is
-            // printed to std::cout can be found in the file
-            //
-            // all that being said, we can skip the logging to a file if the bTESTS_NO_LOG preprocessor macro is
-            // defined
-
+            // announce which group we're running
+            std::cout << "Group: '" << group << "'\n";
 #    ifndef bTESTS_NO_LOG
             // set the std::cout's rdbuf to the output file stream...
             std::cout.set_rdbuf(testsLog.rdbuf());
+            std::cout << "Group: '" << group << "'\n";
+            // and switch std::cout's rdbuf back to the old value!
+            std::cout.set_rdbuf(coutBuffer);
+#    endif // !bTESTS_NO_LOG
+           // walk through all of the tests and run them:
+            for (const auto &[name, test] : tests)
+            {
+                // announce which test we're running
+                std::cout << "\t[" << (idx + 1) << "] : '" << name << "' ";
 
-            // announce which test we're running (now in the log file)
-            print_line_separator();
-            std::cout << "Test '" << name << "' log:\n\n";
+                // it's feasible the function might try to print to std::cout... but we're printing the result
+                // (pass/fail) of the test there. We don't want to pollute the output too much! Instead, we can print
+                // the output from each test to a log file (along with a "header" for each test to separate the output
+                // of each test). We can switch the target buffer for std::cout to be a file so that anything that is
+                // printed to std::cout can be found in the file
+                //
+                // all that being said, we can skip the logging to a file if the bTESTS_NO_LOG preprocessor macro is
+                // defined
+
+#    ifndef bTESTS_NO_LOG
+                // set the std::cout's rdbuf to the output file stream...
+                std::cout.set_rdbuf(testsLog.rdbuf());
+                // announce which test we're running (now in the log file)
+                print_line_separator();
+                std::cout << "Test '" << name << "' log:\n\n";
 #    else
-            std::cout.set_rdbuf(nullptr);
+                std::cout.set_rdbuf(nullptr);
 #    endif // !bTESTS_NO_LOG
 
-            // use exceptions to figure out if tests pass
-            try
-            {
-                (*test)();
+                // use exceptions to figure out if tests pass
+                try
+                {
+                    (*test)();
 #    ifndef bTESTS_NO_LOG
-                // print a success message and line separator...
-                std::cout << "\npassed.\n";
-                print_line_separator();
+                    // print a success message and line separator...
+                    std::cout << "\npassed.\n";
+                    print_line_separator();
 #    endif // !bTESTS_NO_LOG
            // and switch std::cout's rdbuf back to the old value!
-                std::cout.set_rdbuf(coutBuffer);
-                std::cout << "passed.\n";
-                g_successes++;
-            }
+                    std::cout.set_rdbuf(coutBuffer);
+                    std::cout << "passed.\n";
+                    g_successes++;
+                }
 
-            // catch the exceptions (i.e. a failed test)
-            catch (const std::exception &e)
-            {
+                // catch the exceptions (i.e. a failed test)
+                catch (const std::exception &e)
+                {
 #    ifndef bTESTS_NO_LOG
-                // print the error location and line separator...
-                std::cout << "\nfailed at '" << e.what() << "'.\n";
-                print_line_separator();
+                    // print the error location and line separator...
+                    std::cout << "\nfailed at '" << e.what() << "'.\n";
+                    print_line_separator();
 #    endif // !bTESTS_NO_LOG
            // and switch std::cout's rdbuf back to the old value!
-                std::cout.set_rdbuf(coutBuffer);
-                std::cout << "failed at '" << e.what() << "'.\n";
+                    std::cout.set_rdbuf(coutBuffer);
+                    std::cout << "failed at '" << e.what() << "'.\n";
+                }
+                idx++;
             }
-
-            idx++;
         }
     }
 
@@ -301,7 +344,7 @@ namespace
     {
         print_line_separator();
         std::cout << "SUMMARY:\n";
-        std::cout << "\tPassed " << g_successes << " out of " << get_tests().size() << " tests.\n";
+        std::cout << "\tPassed " << g_successes << " out of " << get_number_of_tests() << " tests.\n";
         print_line_separator();
 
 #    ifndef bTESTS_NO_LOG
@@ -311,7 +354,7 @@ namespace
         std::cout.set_rdbuf(testsLog.rdbuf());
         print_line_separator();
         std::cout << "SUMMARY:\n";
-        std::cout << "\tPassed " << g_successes << " out of " << get_tests().size() << " tests.\n";
+        std::cout << "\tPassed " << g_successes << " out of " << get_number_of_tests() << " tests.\n";
         print_line_separator();
         // and switch std::cout's rdbuf back to the old value!
         std::cout.set_rdbuf(coutBuffer);
@@ -319,11 +362,18 @@ namespace
     }
 } // namespace
 
-ben::UnitTest::UnitTest(const char *name, ben::bTestFunc_t func)
+ben::UnitTest::UnitTest(const char *name, bTestFunc_t func, const char *group)
 {
+    // if the group does not exist, we first need to create it...
+    std::string groupString{group};
+    if (!get_tests().contains(groupString))
+    {
+        get_tests().insert_or_assign(groupString, std::unordered_map<std::string, ben::bTestFunc_t>{});
+    }
+
     // insert (or assign) so the value is updated if the same name is passed
     std::string nameString{name};
-    get_tests().insert_or_assign(nameString, func);
+    get_tests().at(groupString).insert_or_assign(nameString, func);
 }
 
 // only compile the main function if we're building the tests
@@ -352,101 +402,71 @@ int main()
 #    undef bTEST_IMPLEMENTATION
 #endif // bTEST_IMPLEMENTATION
 
-/// ********************************************************************************************************************
-/// EXAMPLE USAGE
-///
-/// Let's say we have some function which takes a string and tokenizes it, and then some function which serializes
-/// tokens back into a string. An original input string and a string reconstructed from the tokens generated by that
-/// input string may not be exactly the same, since the tokenizer/stringifier may interpret whitespace or special
-/// characters in different manners depending on input/output. However, when we tokenize this new resulting string, we
-/// should get the same tokens as the first time (i.e. the tokenization/serialization should be repeatable!)
-///
-/// - Let our "tokenize" function take a string as an input and return a vector of strings (or tokens)
-/// - Let our "stringify" function take a vector of strings (or tokens) as an input and return a string
-///
-/// (implementations omitted...)
-///
-/// std::vector<std::string> tokenize(std::string &s) {... };
-/// std::string              stringify(std::vector<std::string> &tokens) {... };
-///
-/// Then, a possible implementation of a unit test to ensure the expecting results would be as follows :
-///
-/// bTEST_FUNCTION(repeatable_tokenization_and_serialization)
-/// {
-///     std::string inputString{...};
-///
-///     auto tokens1 = tokenize(inputString);
-///
-///     auto toString = stringify(tokens1);
-///
-///     auto tokens2 = tokenize(toString);
-///
-///     bTEST_ASSERT(tokens1.size() == tokens2.size());
-///
-///     for (auto idx = 0; idx < tokens1.size(); idx++)
-///     {
-///         bTEST_ASSERT(tokens1.at(idx) == tokens2.at(idx));
-///     }
-/// }
-///
-///
-/// The following shows how it might be implemented for a "suite" of tests on a class;
-/// set the value to true in #if
-/// below to include it in the compilation of the test program for an example output!
-///
-/// class TestClass
-/// {
-///   public:
-///     TestClass()  = default;
-///     ~TestClass() = default;
-///
-///     const bool returns_true()
-///         const
-///     {
-///         return true;
-///     };
-///
-///     const bool returns_false()
-///         const
-///     {
-///         return false;
-///     };
-/// };
-///
-/// bTEST_FUNCTION(TestClass)
-/// {
-///     TestClass t1;
-///
-///     bTEST_ASSERT(t1.returns_true());
-///     bTEST_ASSERT(!t1.returns_false());
-///
-///     // repeat for as many tests
-///     // as needed for the class
-///     // functionality
-/// }
-///
-/// That's about it for now! It' s simple and bare-bones but that's all I need.
-/// ********************************************************************************************************************
-/// DO NOT REMOVE THIS SECTION.
-///
-/// MIT License
-///
-/// Copyright (c) 2025 sherwoodben
-///
-/// Permission is hereby granted, free of charge, to any person obtaining a copy
-/// of this software and associated documentation files (the "Software"), to deal
-/// in the Software without restriction, including without limitation the rights
-/// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-/// copies of the Software, and to permit persons to whom the Software is
-/// furnished to do so, subject to the following conditions:
-///
-/// The above copyright notice and this permission notice shall be included in all
-/// copies or substantial portions of the Software.
-///
-/// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-/// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-/// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-/// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-/// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-/// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-/// SOFTWARE.
+// *********************************************************************************************************************
+// EXAMPLE USAGE - DO NOT REMOVE THIS SECTION.
+//
+// Let's say we have some function which takes a string and tokenizes it, and then some function which serializes
+// tokens back into a string. An original input string and a string reconstructed from the tokens generated by that
+// input string may not be exactly the same, since the tokenizer/stringifier may interpret whitespace or special
+// characters in different manners depending on input/output. However, when we tokenize this new resulting string, we
+// should get the same tokens as the first time (i.e. the tokenization/serialization should be repeatable!)
+//
+// It is also possible to "group" tests by supplying an optional second argument to the macro (a string literal). Tests
+// run for each group in sequence, so the logged output of grouped tests are located closer together in the log file.
+// Tests which are not provided a group are placed in a group named "ungrouped".
+//
+// Let our "tokenize" function take a string as an input and return a vector of strings (or tokens).
+// Let our "stringify" function take a vector of strings (or tokens) as an input and return a string.
+//
+//      std::vector<std::string> tokenize(std::string &s) {...};
+//      std::string              stringify(std::vector<std::string> &tokens) {...};
+//
+// (implementations omitted...)
+//
+// Let's also say we want to add this to a group named "tokenizing".
+//
+// Then, a possible implementation of a unit test to ensure the expected results would be as follows :
+//
+//      bTEST_FUNCTION(repeatable_tokenization_and_serialization, "tokenizing")
+//      {
+//          std::string inputString{...};
+//      
+//          auto tokens1 = tokenize(inputString);
+//      
+//          auto toString = stringify(tokens1);
+//      
+//          auto tokens2 = tokenize(toString);
+//      
+//          bTEST_ASSERT(tokens1.size() == tokens2.size());
+//      
+//          for (auto idx = 0; idx < tokens1.size(); idx++)
+//          {
+//              bTEST_ASSERT(tokens1.at(idx) == tokens2.at(idx));
+//          }
+//      }
+//
+// *********************************************************************************************************************
+// LICENSE - DO NOT REMOVE THIS SECTION.
+//
+// MIT License
+//
+// Copyright (c) 2025 sherwoodben
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+// *********************************************************************************************************************
