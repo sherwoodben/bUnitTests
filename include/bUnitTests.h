@@ -401,7 +401,8 @@ int main()
 
     // returns the "pass" value if all tests pass, or the "fail" value if any tests fail
     return (
-        g_successes == get_tests().size() ? static_cast<int>(ReturnValue::pass) : static_cast<int>(ReturnValue::fail));
+        g_successes == get_number_of_tests() ? static_cast<int>(ReturnValue::pass)
+                                             : static_cast<int>(ReturnValue::fail));
 }
 #    endif // bBUILD_TESTS
 #    undef bTEST_IMPLEMENTATION
@@ -435,15 +436,15 @@ int main()
 //      bTEST_FUNCTION(repeatable_tokenization_and_serialization, "tokenizing")
 //      {
 //          std::string inputString{...};
-//      
+//
 //          auto tokens1 = tokenize(inputString);
-//      
+//
 //          auto toString = stringify(tokens1);
-//      
+//
 //          auto tokens2 = tokenize(toString);
-//      
+//
 //          bTEST_ASSERT(tokens1.size() == tokens2.size());
-//      
+//
 //          for (auto idx = 0; idx < tokens1.size(); idx++)
 //          {
 //              bTEST_ASSERT(tokens1.at(idx) == tokens2.at(idx));
