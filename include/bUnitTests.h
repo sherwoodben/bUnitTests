@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file bUnitTests.h
-/// @version 1.2.0
+/// @version 1.2.1
 /// @brief "header only" unit testing framework/application
 ///
 /// This file is licensed under the MIT license. The complete text of the MIT licence can be found at the bottom of this
@@ -75,6 +75,11 @@
 
 // --CHANGELOG---------------------------------------------------------------------------------------------------------
 // This section was introduced in file version 1.1.0 to track the changes which are made to the file.
+//
+//  v1.2.1  -   Fixed a bug which was introduced in v1.2.0 wherein the success of the program (return 0 for success,
+//              and -1 for failure) would not trigger even if all tests passed. This was because the number of passed
+//              tests was actually being compared to the number of groups due to a change in the structure in the
+//              previous update. Updated to compare the number of passed tests to the total number of tests!
 //
 //  v1.2.0  -   Introduced capability to group tests by providing an (optional) second parameter to the test function
 //              macro. Tests which are not provided a group (i.e. defined with the old macro) are added to a group
