@@ -3,7 +3,7 @@
 //--File Info-----------------------------------------------------------------------------------------------------------
 
 /// @file bUnitTests.h
-/// @version 1.2.2
+/// @version 1.3.0
 /// @brief "header only" unit testing framework/application
 ///
 /// The "header only" mentioned above is a little bit of a lie. While this file _does_ contain everything that is needed
@@ -75,6 +75,9 @@
 //--Changelog---------------------------------------------------------------------------------------------------------//
 /*                                                                                                                    //
 // This section was introduced in file version 1.1.0 to track the changes which are made to the file.                 //
+//                                                                                                                    //
+//  v1.3.0  -   Added documentation to the git repo. No changes to this file directly, but wanted to "unify" the      //
+//              number in the documentation and the file itself!                                                      //
 //                                                                                                                    //
 //  v1.2.2  -   Tweaked the doxygen documentation comment describing the variadic arguments (which correspond to the  //
 //              optional group name parameter) for the bTEST_FUNCTION macro-- no longer produces a warning/error if   //
